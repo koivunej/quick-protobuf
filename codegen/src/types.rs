@@ -28,7 +28,7 @@ impl Default for Syntax {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Frequency {
     Optional,
     Repeated,
@@ -325,7 +325,7 @@ impl FieldType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Field {
     pub name: String,
     pub frequency: Frequency,
@@ -529,7 +529,7 @@ impl Field {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct Message {
     pub name: String,
     pub fields: Vec<Field>,
@@ -836,7 +836,7 @@ impl Message {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Enumerator {
     pub name: String,
     pub fields: Vec<(String, i32)>,
@@ -914,7 +914,7 @@ impl Enumerator {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct OneOf {
     pub name: String,
     pub fields: Vec<Field>,

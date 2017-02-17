@@ -359,6 +359,99 @@ mod test {
         if let ::nom::IResult::Done(_, mess) = mess {
             assert_eq!(1, mess.oneofs.len());
             assert_eq!(3, mess.oneofs[0].fields.len());
+        } else {
+            panic!("failed to parse");
+        }
+    }
+
+    #[test]
+    fn test_parsing_required_i32() {
+        let msg = r#"message F {
+            required int32 a = 1;
+        }"#;
+        let msg = message(msg.as_bytes());
+        if let ::nom::IResult::Done(_, msg) = msg {
+            assert_eq!(msg.fields[0], Field {
+                name: "a".to_string(),
+                frequency: Frequency::Required,
+                typ: FieldType::Int32,
+                number: 1,
+                default: None,
+                packed: None,
+                boxed: false,
+                deprecated: false
+            });
+        } else {
+            panic!("failed to parse");
+        }
+    }
+
+    #[test]
+    fn test_parsing_required_enum() {
+        let msg = r#"message F {
+            required SomeEnum a = 1;
+        }"#;
+
+        let msg = message(msg.as_bytes());
+        if let ::nom::IResult::Done(_, msg) = msg {
+            assert_eq!(msg.fields[0], Field {
+                name: "a".to_string(),
+                frequency: Frequency::Required,
+                typ: FieldType::Message("SomeEnum".to_string()),
+                number: 1,
+                default: None,
+                packed: None,
+                boxed: false,
+                deprecated: false
+            });
+        } else {
+            panic!("failed to parse");
+        }
+    }
+
+    #[test]
+    fn test_parsing_file_desc_with_required_enum() {
+        let input = "
+        enum SomeEnum {
+            Value = 0;
+            Other = 1;
+        }
+
+        message F {
+            required SomeEnum a = 1;
+        }";
+
+        let file_desc = file_descriptor(input.as_bytes());
+        if let ::nom::IResult::Done(_, file_desc) = file_desc {
+            assert_eq!(&file_desc.enums, &[Enumerator {
+                name: "SomeEnum".to_string(),
+                fields: vec![("Value".to_string(), 0i32), ("Other".to_string(), 1)],
+                imported: false,
+                package: "".to_string()
+            }]);
+
+            assert_eq!(&file_desc.messages, &[Message {
+                name: "F".to_string(),
+                fields: vec![Field {
+                    name: "a".to_string(),
+                    frequency: Frequency::Required,
+                    typ: FieldType::Message("SomeEnum".to_string()),
+                    number: 1,
+                    default: None,
+                    packed: None,
+                    boxed: false,
+                    deprecated: false
+                }],
+                oneofs: vec![],
+                reserved_nums: None,
+                reserved_names: None,
+                imported: false,
+                package: "".to_string(),
+                messages: vec![],
+                enums: vec![]
+            }]);
+        } else {
+            panic!("parsing failed");
         }
     }
 }
