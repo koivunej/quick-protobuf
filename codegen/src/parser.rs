@@ -243,10 +243,8 @@ mod test {
         repeated MaturityInfo maturitySet = 10;
     }"#;
 
-        let mess = message(msg.as_bytes());
-        if let ::nom::IResult::Done(_, mess) = mess {
-            assert_eq!(10, mess.fields.len());
-        }
+        let mess = parse_all(message, msg);
+        assert_eq!(10, mess.fields.len());
     }
 
     #[test]
@@ -258,20 +256,13 @@ mod test {
                 CANCELED          = 3;
     }"#;
 
-        let mess = enumerator(msg.as_bytes());
-        if let ::nom::IResult::Done(_, mess) = mess {
-            assert_eq!(4, mess.fields.len());
-        }
+        let mess = parse_all(enumerator, msg);
+        assert_eq!(4, mess.fields.len());
     }
 
     #[test]
     fn test_ignore() {
-        let msg = r#"option optimize_for = SPEED;"#;
-
-        match option_ignore(msg.as_bytes()) {
-            ::nom::IResult::Done(_, _) => (),
-            e => panic!("Expecting done {:?}", e),
-        }
+        parse_successfully(option_ignore, r#"option optimize_for = SPEED;"#);
     }
 
     #[test]
@@ -285,7 +276,7 @@ mod test {
         optional ContainerForNested.NestedEnum e = 2;
     }
     "#;
-        let desc = file_descriptor(msg.as_bytes()).to_full_result().unwrap();
+        let desc = parse_all(file_descriptor, msg);
         assert_eq!(vec![Path::new("test_import_nested_imported_pb.proto")], desc.import_paths);
     }
 
@@ -299,7 +290,7 @@ mod test {
         optional ContainerForNested.NestedEnum e = 2;
     }
     "#;
-        let desc = file_descriptor(msg.as_bytes()).to_full_result().unwrap();
+        let desc = parse_all(file_descriptor, msg);
         assert_eq!("foo.bar".to_string(), desc.package);
     }
 
@@ -314,10 +305,8 @@ mod test {
         optional b = 1;
     }"#;
 
-        let mess = message(msg.as_bytes());
-        if let ::nom::IResult::Done(_, mess) = mess {
-            assert!(mess.messages.len() == 1);
-        }
+        let mess = parse_all(message, msg);
+        assert!(mess.messages.len() == 1);
     }
 
     #[test]
@@ -327,18 +316,14 @@ mod test {
         optional map<string, int32> b = 1;
     }"#;
 
-        let mess = message(msg.as_bytes());
-        if let ::nom::IResult::Done(_, mess) = mess {
-            assert_eq!(1, mess.fields.len());
-            match mess.fields[0].typ {
-                FieldType::Map(ref f) => match &**f {
-                    &(FieldType::String_, FieldType::Int32) => (),
-                    ref f => panic!("Expecting Map<String, Int32> found {:?}", f),
-                },
-                ref f => panic!("Expecting map, got {:?}", f),
-            }
-        } else {
-            panic!("Could not parse map message");
+        let mess = parse_all(message, msg);
+        assert_eq!(1, mess.fields.len());
+        match mess.fields[0].typ {
+            FieldType::Map(ref f) => match &**f {
+                &(FieldType::String_, FieldType::Int32) => (),
+                ref f => panic!("Expecting Map<String, Int32> found {:?}", f),
+            },
+            ref f => panic!("Expecting map, got {:?}", f),
         }
     }
 
@@ -355,13 +340,9 @@ mod test {
         repeated bool a5 = 5;
     }"#;
 
-        let mess = message(msg.as_bytes());
-        if let ::nom::IResult::Done(_, mess) = mess {
-            assert_eq!(1, mess.oneofs.len());
-            assert_eq!(3, mess.oneofs[0].fields.len());
-        } else {
-            panic!("failed to parse");
-        }
+        let mess = parse_all(message, msg);
+        assert_eq!(1, mess.oneofs.len());
+        assert_eq!(3, mess.oneofs[0].fields.len());
     }
 
     #[test]
@@ -369,21 +350,17 @@ mod test {
         let msg = r#"message F {
             required int32 a = 1;
         }"#;
-        let msg = message(msg.as_bytes());
-        if let ::nom::IResult::Done(_, msg) = msg {
-            assert_eq!(msg.fields[0], Field {
-                name: "a".to_string(),
-                frequency: Frequency::Required,
-                typ: FieldType::Int32,
-                number: 1,
-                default: None,
-                packed: None,
-                boxed: false,
-                deprecated: false
-            });
-        } else {
-            panic!("failed to parse");
-        }
+        let msg = parse_all(message, msg);
+        assert_eq!(msg.fields[0], Field {
+            name: "a".to_string(),
+            frequency: Frequency::Required,
+            typ: FieldType::Int32,
+            number: 1,
+            default: None,
+            packed: None,
+            boxed: false,
+            deprecated: false
+        });
     }
 
     #[test]
@@ -392,21 +369,17 @@ mod test {
             required SomeEnum a = 1;
         }"#;
 
-        let msg = message(msg.as_bytes());
-        if let ::nom::IResult::Done(_, msg) = msg {
-            assert_eq!(msg.fields[0], Field {
-                name: "a".to_string(),
-                frequency: Frequency::Required,
-                typ: FieldType::Message("SomeEnum".to_string()),
-                number: 1,
-                default: None,
-                packed: None,
-                boxed: false,
-                deprecated: false
-            });
-        } else {
-            panic!("failed to parse");
-        }
+        let msg = parse_all(message, msg);
+        assert_eq!(msg.fields[0], Field {
+            name: "a".to_string(),
+            frequency: Frequency::Required,
+            typ: FieldType::Message("SomeEnum".to_string()),
+            number: 1,
+            default: None,
+            packed: None,
+            boxed: false,
+            deprecated: false
+        });
     }
 
     #[test]
@@ -421,37 +394,59 @@ mod test {
             required SomeEnum a = 1;
         }";
 
-        let file_desc = file_descriptor(input.as_bytes());
-        if let ::nom::IResult::Done(_, file_desc) = file_desc {
-            assert_eq!(&file_desc.enums, &[Enumerator {
-                name: "SomeEnum".to_string(),
-                fields: vec![("Value".to_string(), 0i32), ("Other".to_string(), 1)],
-                imported: false,
-                package: "".to_string()
-            }]);
+        let file_desc = parse_all(file_descriptor, input);
+        assert_eq!(&file_desc.enums, &[Enumerator {
+            name: "SomeEnum".to_string(),
+            fields: vec![("Value".to_string(), 0i32), ("Other".to_string(), 1)],
+            imported: false,
+            package: "".to_string()
+        }]);
 
-            assert_eq!(&file_desc.messages, &[Message {
-                name: "F".to_string(),
-                fields: vec![Field {
-                    name: "a".to_string(),
-                    frequency: Frequency::Required,
-                    typ: FieldType::Message("SomeEnum".to_string()),
-                    number: 1,
-                    default: None,
-                    packed: None,
-                    boxed: false,
-                    deprecated: false
-                }],
-                oneofs: vec![],
-                reserved_nums: None,
-                reserved_names: None,
-                imported: false,
-                package: "".to_string(),
-                messages: vec![],
-                enums: vec![]
-            }]);
-        } else {
-            panic!("parsing failed");
+        assert_eq!(&file_desc.messages, &[Message {
+            name: "F".to_string(),
+            fields: vec![Field {
+                name: "a".to_string(),
+                frequency: Frequency::Required,
+                typ: FieldType::Message("SomeEnum".to_string()),
+                number: 1,
+                default: None,
+                packed: None,
+                boxed: false,
+                deprecated: false
+            }],
+            oneofs: vec![],
+            reserved_nums: None,
+            reserved_names: None,
+            imported: false,
+            package: "".to_string(),
+            messages: vec![],
+            enums: vec![]
+        }]);
+    }
+
+    fn parse_all<'a, F, O, E>(f: F, input: &'a str) -> O
+        where F: Fn(&'a [u8]) -> ::nom::IResult<&[u8], O, E>,
+              E: ::std::fmt::Debug
+    {
+        let (remaining, o) = parse_successfully(f, input);
+        if remaining.len() > 0 {
+            panic!("All input was not consumed, {} bytes remain: {}",
+                   remaining.len(), String::from_utf8_lossy(remaining));
+        }
+        o
+    }
+
+    fn parse_successfully<'a, F, O, E>(f: F, input: &'a str) -> (&'a [u8], O)
+        where F: Fn(&'a [u8]) -> ::nom::IResult<&[u8], O, E>,
+              E: ::std::fmt::Debug
+    {
+        use ::nom::IResult;
+
+        match f(input.as_bytes()) {
+            IResult::Done(remaining, o) => (remaining, o),
+            IResult::Error(e) => panic!("Parsing failed: {}", e),
+            IResult::Incomplete(needed) => panic!("Parsing was incomplete, would still need: {:?}", needed),
         }
     }
+
 }
