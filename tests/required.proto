@@ -1,0 +1,10 @@
+package a.b.c;
+
+enum Resultish {
+	Okay = 0;
+	Fail = 1;
+}
+
+message Foo {
+	required Resultish result = 1;
+}
